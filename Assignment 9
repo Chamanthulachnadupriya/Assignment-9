@@ -1,0 +1,111 @@
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(express.json());
+
+// Routes
+app.use('/todos', require('./routes/todoRoutes'));
+
+// Start server
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const express = require('express');
+const router = express.Router();
+
+let todos = [];
+
+// Get all todos
+router.get('/', (req, res) => {
+  res.json(todos);
+});
+
+// Add new todo
+router.post('/add', (req, res) => {
+  const { text } = req.body;
+  const newTodo = { id: Date.now(), text, completed: false };
+  todos.push(newTodo);
+  res.status(201).json(newTodo);
+});
+
+// Update todo
+router.put('/update/:id', (req, res) => {
+  const { id } = req.params;
+  const { text, completed } = req.body;
+  const index = todos.findIndex(todo => todo.id === parseInt(id));
+  if (index !== -1) {
+    todos[index].text = text;
+    todos[index].completed = completed;
+    res.json(todos[index]);
+  } else {
+    res.status(404).json({ message: 'Todo not found' });
+  }
+});
+
+// Delete todo
+router.delete('/delete/:id', (req, res) => {
+  const { id } = req.params;
+  todos = todos.filter(todo => todo.id !== parseInt(id));
+  res.json({ message: 'Todo deleted' });
+});
+
+module.exports = router;
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+function App() {
+  const [todos, setTodos] = useState([]);
+  const [newTodoText, setNewTodoText] = useState('');
+
+  useEffect(() => {
+    axios.get('/todos')
+      .then(response => setTodos(response.data))
+      .catch(error => console.error('Error fetching todos:', error));
+  }, []);
+
+  const addTodo = () => {
+    axios.post('/todos/add', { text: newTodoText })
+      .then(response => {
+        setTodos([...todos, response.data]);
+        setNewTodoText('');
+      })
+      .catch(error => console.error('Error adding todo:', error));
+  };
+
+  const updateTodo = (id, newText, completed) => {
+    axios.put(`/todos/update/${id}`, { text: newText, completed })
+      .then(response => {
+        const updatedTodos = todos.map(todo => todo.id === id ? response.data : todo);
+        setTodos(updatedTodos);
+      })
+      .catch(error => console.error('Error updating todo:', error));
+  };
+
+  const deleteTodo = id => {
+    axios.delete(`/todos/delete/${id}`)
+      .then(() => {
+        const updatedTodos = todos.filter(todo => todo.id !== id);
+        setTodos(updatedTodos);
+      })
+      .catch(error => console.error('Error deleting todo:', error));
+  };
+
+  return (
+    <div>
+      <h1>To-Do List</h1>
+      <input type="text" value={newTodoText} onChange={e => setNewTodoText(e.target.value)} />
+      <button onClick={addTodo}>Add</button>
+      <ul>
+        {todos.map(todo => (
+          <li key={todo.id}>
+            <input type="checkbox" checked={todo.completed} onChange={e => updateTodo(todo.id, todo.text, e.target.checked)} />
+            <input type="text" value={todo.text} onChange={e => updateTodo(todo.id, e.target.value, todo.completed)} />
+            <button onClick={() => deleteTodo(todo.id)}>Delete</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default App;
